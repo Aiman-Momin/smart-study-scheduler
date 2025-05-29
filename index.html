@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart Study Scheduler</title>
+<style>
+  /* Reset & basics */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: background 0.3s, color 0.3s;
+  }
+  :root {
+    --bg-color: #f5f7fa;
+    --text-color: #222;
+    --primary-color: #3f51b5;
+    --accent-color: #f50057;
+    --card-bg: white;
+    --input-bg: #eee;
+  }
+  body.dark {
+    --bg-color: #121212;
+    --text-color: #eee;
+    --card-bg: #1e1e1e;
+    --input-bg: #333;
+  }
+  header {
+    background: var(--primary-color);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+  }
+  main {
+    max-width: 900px;
+    margin: 1rem auto;
+    padding: 0 1rem 3rem;
+  }
+  h1, h2 {
+    margin-top: 0;
+  }
+  /* Buttons */
+  button {
+    cursor: pointer;
+    background: var(--primary-color);
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  button:hover {
+    background: var(--accent-color);
+  }
+  /* Inputs */
+  input, select, textarea {
+    padding: 0.4rem;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    background: var(--input-bg);
+    color: var(--text-color);
+    width: 100%;
+    font-size: 1rem;
+  }
+  /* Cards */
+  .card {
+    background: var(--card-bg);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  }
+  /* Layout grid for calendar and tasks */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+  }
+  /* Task list */
+  ul#taskList {
+    list-style: none;
+    padding: 0;
+  }
+  ul#taskList li {
+    background: var(--input-bg);
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  ul#taskList li.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+  /* Calendar */
+  #calendar {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  #calendar th, #calendar td {
+    border: 1px solid #999;
+    padding: 0.5rem;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  #calendar th {
+    background: var(--primary-color);
+    color: white;
+  }
+  #calendar td.today {
+    background: var(--accent-color);
+    color: white;
+  }
+  #calendar td.task-day {
+    background: #8bc34a50;
+  }
+  /* Pomodoro */
+  #pomodoroTimer {
+    font-size: 2rem;
+    text-align: center;
+    margin: 1rem 0;
+  }
+  #pomodoroControls button {
+    margin: 0 0.5rem;
+  }
+  /* Dark mode toggle */
+  #darkModeToggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    background: var(--accent-color);
+    border: none;
+    color: white;
+    padding: 0.5rem 0.8rem;
+    border-radius: 50%;
+    font-weight: bold;
+  }
+  /* Responsive */
+  @media (max-width: 700px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Smart Study Scheduler</h1>
+</header>
+
+<button id="darkModeToggle" title="Toggle Dark/Light Mode">🌙</button>
+
+<main>
+
+  <!-- Task Input -->
+  <section class="card" aria-label="Add New Task">
+    <h2>Add New Task</h2>
+    <form id="taskForm">
+      <label>
+        Title:
+        <input type="text" id="taskTitle" required placeholder="Task title" />
+      </label><br/><br/>
+      <label>
+        Subject:
+        <input type="text" id="taskSubject" placeholder="Subject (optional)" />
+      </label><br/><br/>
+      <label>
+        Priority:
+        <select id="taskPriority">
+          <option value="Low">Low</option>
+          <option value="Medium" selected>Medium</option>
+          <option value="High">High</option>
+        </select>
+      </label><br/><br/>
+      <label>
+        Due Date:
+        <input type="date" id="taskDueDate" />
+      </label><br/><br/>
+      <label>
+        Estimated Duration (minutes):
+        <input type="number" id="taskDuration" min="5" max="240" value="30" />
+      </label><br/><br/>
+      <button type="submit">Add Task</button>
+    </form>
+  </section>
+
+  <div class="grid-2">
+
+    <!-- Task List -->
+    <section class="card" aria-label="Task List">
+      <h2>Tasks</h2>
+      <ul id="taskList" aria-live="polite" aria-relevant="additions removals"></ul>
+    </section>
+
+    <!-- Calendar -->
+    <section class="card" aria-label="Calendar">
+      <h2>Calendar</h2>
+      <table id="calendar" role="grid" aria-readonly="true">
+        <!-- JS will fill -->
+      </table>
+    </section>
+
+  </div>
+
+  <!-- Pomodoro -->
+  <section class="card" aria-label="Pomodoro Timer">
+    <h2>Pomodoro Timer</h2>
+    <div id="pomodoroTimer" aria-live="polite">25:00</div>
+    <div id="pomodoroControls">
+      <button id="startPomodoro">Start</button>
+      <button id="pausePomodoro" disabled>Pause</button>
+      <button id="resetPomodoro">Reset</button>
+    </div>
+  </section>
+
+</main>
+
+<script>
+  // --- Dark Mode Toggle ---
+  const darkModeToggle = document.getElementById('darkModeToggle');
+  darkModeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    if(document.body.classList.contains('dark')) {
+      darkModeToggle.textContent = '☀️';
+      localStorage.setItem('darkMode', 'enabled');
+    } else {
+      darkModeToggle.textContent = '🌙';
+      localStorage.setItem('darkMode', 'disabled');
+    }
+  });
+  // Load preference
+  if(localStorage.getItem('darkMode') === 'enabled') {
+    document.body.classList.add('dark');
+    darkModeToggle.textContent = '☀️';
+  }
+
+  // --- Task Management ---
+  const taskForm = document.getElementById('taskForm');
+  const taskList = document.getElementById('taskList');
+  let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+
+  function saveTasks() {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }
+
+  function renderTasks() {
+    taskList.innerHTML = '';
+    if(tasks.length === 0) {
+      taskList.innerHTML = '<li>No tasks added yet.</li>';
+      return;
+    }
+    tasks.forEach((task, i) => {
+      const li = document.createElement('li');
+      li.className = task.completed ? 'completed' : '';
+      li.innerHTML = `
+        <div>
+          <strong>${task.title}</strong> 
+          <small>(${task.subject || 'General'}, Priority: ${task.priority})</small><br/>
+          <small>Due: ${task.dueDate || 'N/A'}, Duration: ${task.duration} min</small>
+        </div>
+        <div>
+          <button aria-label="Mark task ${task.title} as completed">${task.completed ? 'Undo' : 'Done'}</button>
+          <button aria-label="Delete task ${task.title}">✕</button>
+        </div>
+      `;
+      // Toggle completion
+      li.querySelector('button:first-child').onclick = () => {
+        tasks[i].completed = !tasks[i].completed;
+        saveTasks();
+        renderTasks();
+        renderCalendar();
+      };
+      // Delete task
+      li.querySelector('button:last-child').onclick = () => {
+        if(confirm(`Delete task "${task.title}"?`)) {
+          tasks.splice(i, 1);
+          saveTasks();
+          renderTasks();
+          renderCalendar();
+        }
+      };
+      taskList.appendChild(li);
+    });
+  }
+
+  taskForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const newTask = {
+      title: taskForm.taskTitle.value.trim(),
+      subject: taskForm.taskSubject.value.trim(),
+      priority: taskForm.taskPriority.value,
+      dueDate: taskForm.taskDueDate.value,
+      duration: parseInt(taskForm.taskDuration.value),
+      completed: false,
+      createdAt: Date.now(),
+    };
+    tasks.push(newTask);
+    saveTasks();
+    renderTasks();
+    renderCalendar();
+    taskForm.reset();
+  });
+
+  renderTasks();
+
+  // --- Calendar ---
+  const calendar = document.getElementById('calendar');
+
+  function renderCalendar(date = new Date()) {
+    calendar.innerHTML = '';
+    const year = date.getFullYear();
+    const month = date.getMonth();
+
+    // Weekday headers
+    const daysOfWeek = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let headerRow = document.createElement('tr');
+    daysOfWeek.forEach(d => {
+      const th = document.createElement('th');
+      th.textContent = d;
+      headerRow.appendChild(th);
+    });
+    calendar.appendChild(headerRow);
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month +1, 0);
+    const startDay = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+
+    let row = document.createElement('tr');
+    // Empty cells before first day
+    for(let i=0; i < startDay; i++) {
+      const td = document.createElement('td');
+      row.appendChild(td);
+    }
+
+    for(let day=1; day <= totalDays; day++) {
+      if(row.children.length === 7) {
+        calendar.appendChild(row);
+        row = document.createElement('tr');
+      }
+      const td = document.createElement('td');
+      td.textContent = day;
+
+      // Highlight today
+      const today = new Date();
+      if(day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+        td.classList.add('today');
+      }
+
+      // Mark if tasks are due this day
+      const dayStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      if(tasks.some(t => t.dueDate === dayStr && !t.completed)) {
+        td.classList.add('task-day');
+      }
+
+      // On clicking date, show tasks for that day
+      td.onclick = () => {
+        const filtered = tasks.filter(t => t.dueDate === dayStr);
+        if(filtered.length === 0) {
+          alert(`No tasks due on ${dayStr}`);
+        } else {
+          alert(`Tasks due on ${dayStr}:\n` + filtered.map(t => `- ${t.title} (${t.priority})`).join('\n'));
+        }
+      };
+
+      row.appendChild(td);
+    }
+
+    // Fill trailing empty cells
+    while(row.children.length < 7) {
+      const td = document.createElement('td');
+      row.appendChild(td);
+    }
+    calendar.appendChild(row);
+  }
+
+  renderCalendar();
+
+  // --- Pomodoro Timer ---
+  const pomodoroTimer = document.getElementById('pomodoroTimer');
+  const startBtn = document.getElementById('startPomodoro');
+  const pauseBtn = document.getElementById('pausePomodoro');
+  const resetBtn = document.getElementById('resetPomodoro');
+
+  let pomodoroDuration = 25 * 60; // 25 minutes in seconds
+  let timer = null;
+  let timeLeft = pomodoroDuration;
+  let isRunning = false;
+
+  function formatTime(s) {
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sec = (s % 60).toString().padStart(2,'0');
+    return `${m}:${sec}`;
+  }
+
+  function updateTimerDisplay() {
+    pomodoroTimer.textContent = formatTime(timeLeft);
+  }
+
+  function tick() {
+    if(timeLeft > 0) {
+      timeLeft--;
+      updateTimerDisplay();
+    } else {
+      clearInterval(timer);
+      timer = null;
+      isRunning = false;
+      alert('Pomodoro session finished! Time for a break.');
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+    }
+  }
+
+  startBtn.onclick = () => {
+    if(!isRunning) {
+      timer = setInterval(tick, 1000);
+      isRunning = true;
+      startBtn.disabled = true;
+      pauseBtn.disabled = false;
+    }
+  };
+
+  pauseBtn.onclick = () => {
+    if(isRunning) {
+      clearInterval(timer);
+      timer = null;
+      isRunning = false;
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+    }
+  };
+
+  resetBtn.onclick = () => {
+    clearInterval(timer);
+    timer = null;
+    isRunning = false;
+    timeLeft = pomodoroDuration;
+    updateTimerDisplay();
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+  };
+
+  updateTimerDisplay();
+
+  // --- Notifications & Reminders (basic) ---
+  function notify(title, body) {
+    if(Notification.permission === 'granted') {
+      new Notification(title, {body});
+    } else if(Notification.permission !== 'denied') {
+      Notification.requestPermission().then(permission => {
+        if(permission === 'granted') {
+          new Notification(title, {body});
+        }
+      });
+    }
+  }
+
+  // Notify 1 min before task due (basic, only checks on page load)
+  function checkUpcomingTasks() {
+    const now = new Date();
+    tasks.forEach(task => {
+      if(task.dueDate && !task.completed) {
+        const due = new Date(task.dueDate + 'T23:59:59');
+        const diff = due - now;
+        if(diff > 0 && diff < 60 * 1000) {
+          notify('Task Due Soon', `Task "${task.title}" is due today!`);
+        }
+      }
+    });
+  }
+  checkUpcomingTasks();
+
+</script>
+<script>
+(function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="kjifaJG_0zinlWhPlSaha";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load",onLoad)}})();
+</script>
+</body>
+</html>
